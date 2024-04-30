@@ -123,8 +123,6 @@
               let displayContent;
               displayContent = hits.map((hit) => {
                 const styleLayer = tileLayer.getStyleLayer(hit.graphic.origin.layerId);
-                // const mapPoint = view.toMap({x: event.x, y: event.y});
-                // graphic.geometry = mapPoint;
                 const content = {
                   "Layer Name": hit.graphic.origin.layerId,
                   "English": hit.graphic.attributes["NAME_ENGLISH"],
