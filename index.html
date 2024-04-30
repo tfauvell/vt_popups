@@ -24,7 +24,7 @@
         margin: 0 auto;
         padding: 12px;
         border-radius: 4px;
-        box-shadow: 0px 0px 4px rgba(255, 255, 255, 0.75);
+        box-shadow: 2px 2px 6px rgba(63, 62, 62, 0.5);
         transform: translate3d(-50%, -125%, 0);
       }
     </style>
@@ -50,9 +50,8 @@
         GraphicsLayer,
         Graphic
       ) => (async () => {
-        const layer = new VectorTileLayer({
-          url: "https://www.arcgis.com/sharing/rest/content/items/24cb345c4ccc4dbf8c84f9db3e520b37/resources/styles/root.json"
-          //blendMode: "multiply"
+        const tileLayer = new VectorTileLayer({
+          url: "https://www.arcgis.com/sharing/rest/content/items/24cb345c4ccc4dbf8c84f9db3e520b37/resources/styles/root.json"  
         });
 
         // a graphic in this layer will show a location of the pointer when the hittest
@@ -68,16 +67,9 @@
           }
         });
         graphicsLayer.add(graphic);
-        
-        const tileLayer = new VectorTileLayer({
-          url:
-            "https://www.arcgis.com/sharing/rest/content/items/24cb345c4ccc4dbf8c84f9db3e520b37/resources/styles/root.json"
-        });
-        
+                
         const map = new Map({
-          //basemap: "streets-relief-vector",
-          tileLayer,
-          layers: [layer, graphicsLayer]
+          layers: [tileLayer, graphicsLayer]
         });
 
         const view = new MapView({
@@ -91,7 +83,7 @@
           //}
         });
 
-        await view.whenLayerView(layer);
+        await view.whenLayerView(tileLayer);
 
         // setup a popup to show country names from vector tile layer after user clicks the map
         vtlTooltip = createTooltip();
@@ -99,12 +91,12 @@
         // debounce the hittest as user moves the mouse over the map to improve performance
         const hitTest = promiseUtils.debounce(async (event) => {
           // get hit test results only from the vector tile layer
-          const hit = await view.hitTest(event, {include: layer});
+          const hit = await view.hitTest(event, {include: tileLayer});
           if (hit.results.length) {
             // check if the hit test results from the vector tile layer contains
             // results for label layers defined in styleLayerIds
             const results = hit.results.filter((result) => {
-              return result.graphic;
+              return result.graphic; // .origin.layerId == "GADM Admin0/1" to only show results from a specific layer
             });
             results.screenPoint = hit.screenPoint;
             if (!results.length) {
@@ -114,36 +106,36 @@
           } else {
             return null;
           }
+          
         });
 
-        // Listen to MapView's pointer click event and call hittest
+        // Listen to MapView's pointer click or pointer move event and call hittest
         // Display the layer info if the hittest result
         // contains information from vector tile layer
-        //view.on("pointer-move", async (event) => {
-        view.on("click", async (event) => {
+        // view.on("pointer-move", async (event) => {
+        view.on("click", async (event) => { // for a more traditional popup feel
           let hits;
           try {
             hits = await hitTest(event);
             if (hits) {
+              const mapPoint = view.toMap({x: event.x, y: event.y});
+              graphic.geometry = mapPoint;              
               let displayContent;
-              for (let hit of hits) {
-                displayContent = hits.map((hit) => {
-                  const styleLayer = layer.getStyleLayer(hit.graphic.origin.layerId);
-                  const mapPoint = view.toMap({x: event.x, y: event.y});
-                  graphic.geometry = mapPoint;
-
-                  const content = {
-                    "Layer Name": hit.graphic.origin.layerId,
-                    "English": hit.graphic.attributes["NAME_ENGLISH"],
-                    "Arabic": hit.graphic.attributes["NAME_ARABIC"],
-                    "Chinese": hit.graphic.attributes["NAME_CHINESE"],
-                    "Russian": hit.graphic.attributes["NAME_RUSSIAN"],
-                    "Spanish": hit.graphic.attributes["NAME_SPANISH"],
-                    "French": hit.graphic.attributes["NAME_FRENCH"]
-                  }
-                  return content;
-                });
-              }
+              displayContent = hits.map((hit) => {
+                const styleLayer = tileLayer.getStyleLayer(hit.graphic.origin.layerId);
+                // const mapPoint = view.toMap({x: event.x, y: event.y});
+                // graphic.geometry = mapPoint;
+                const content = {
+                  "Layer Name": hit.graphic.origin.layerId,
+                  "English": hit.graphic.attributes["NAME_ENGLISH"],
+                  "Arabic": hit.graphic.attributes["NAME_ARABIC"],
+                  "Chinese": hit.graphic.attributes["NAME_CHINESE"],
+                  "Russian": hit.graphic.attributes["NAME_RUSSIAN"],
+                  "Spanish": hit.graphic.attributes["NAME_SPANISH"],
+                  "French": hit.graphic.attributes["NAME_FRENCH"]
+                }
+                return content;
+              });
               // clean up the tooltip content to show layer info
               displayContent[0] = JSON.stringify(displayContent[0])?.replace(/[{}]/g, '');
               displayContent[0] = displayContent[0].replace(/\"/g, "").replace(/:/g, ": ");;
